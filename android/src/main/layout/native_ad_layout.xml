@@ -1,0 +1,39 @@
+<!-- res/layout/native_ad_layout.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <ImageView
+        android:id="@+id/native_ad_icon"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_gravity="center_horizontal" />
+
+    <TextView
+        android:id="@+id/native_ad_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ad Title"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal"
+        android:paddingTop="10dp" />
+
+    <TextView
+        android:id="@+id/native_ad_body"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ad Description"
+        android:layout_gravity="center_horizontal"
+        android:paddingTop="5dp" />
+
+    <Button
+        android:id="@+id/native_ad_cta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Call to Action"
+        android:layout_gravity="center_horizontal"
+        android:paddingTop="10dp" />
+</LinearLayout>

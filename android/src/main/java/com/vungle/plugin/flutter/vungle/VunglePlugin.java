@@ -3,6 +3,12 @@ package com.vungle.plugin.flutter.vungle;
 import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
@@ -10,6 +16,8 @@ import com.vungle.warren.AdConfig;
 import com.vungle.warren.BuildConfig;
 import com.vungle.warren.InitCallback;
 import com.vungle.warren.LoadAdCallback;
+import com.vungle.warren.NativeAd;
+import com.vungle.warren.NativeAdConfig;
 import com.vungle.warren.PlayAdCallback;
 import com.vungle.warren.Vungle;
 import com.vungle.warren.error.VungleException;
@@ -23,6 +31,8 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
+import io.flutter.plugin.platform.PlatformView;
+import io.flutter.plugin.platform.PlatformViewFactory;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
 /** VunglePlugin */
@@ -34,6 +44,7 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
   private MethodChannel channel;
   private static final Map<String, Vungle.Consent> strToConsentStatus = new HashMap<>();
   private static final Map<Vungle.Consent, String> consentStatusToStr = new HashMap<>();
+
   static {
     strToConsentStatus.put("Accepted", Vungle.Consent.OPTED_IN);
     strToConsentStatus.put("Denied", Vungle.Consent.OPTED_OUT);
@@ -57,6 +68,7 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
     this.context = binding.getApplicationContext();
     setup(this, binding.getBinaryMessenger());
+    binding.getPlatformViewRegistry().registerViewFactory("vungle-native-ad", new NativeAdFactory(context));
   }
 
   @Override
@@ -65,7 +77,7 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
   }
 
   public VunglePlugin() {
-    // All Android plugin classes must support a no-args 
+    // All Android plugin classes must support a no-args
     // constructor for v2.
   }
 
@@ -74,19 +86,22 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
     this.channel = channel;
   }
 
+  @Override
   public void onMethodCall(MethodCall call, Result result) {
     if (call.method.equals("getPlatformVersion")) {
       result.success("Android " + android.os.Build.VERSION.RELEASE);
-    } else if(call.method.equals("init")) {
+    } else if (call.method.equals("init")) {
       callInit(call, result);
-    } else if(call.method.equals("loadAd")) {
+    } else if (call.method.equals("loadAd")) {
       callLoadAd(call, result);
-    } else if(call.method.equals("playAd")) {
+    } else if (call.method.equals("playAd")) {
       callPlayAd(call, result);
-    } else if(call.method.equals("isAdPlayable")) {
+    } else if (call.method.equals("isAdPlayable")) {
       callIsAdPlayable(call, result);
-    } else if(call.method.equals("updateConsentStatus")) {
+    } else if (call.method.equals("updateConsentStatus")) {
       callUpdateConsentStatus(call, result);
+    } else if (call.method.equals("loadNativeAd")) {
+      callLoadNativeAd(call, result);
     } else if (call.method.equals("sdkVersion")) {
       result.success(BuildConfig.VERSION_NAME);
     } else if (call.method.equals("enableBackgroundDownload")) {
@@ -125,7 +140,7 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
 
   private void callLoadAd(MethodCall call, Result result) {
     final String placementId = getAndValidatePlacementId(call, result);
-    if(placementId == null) {
+    if (placementId == null) {
       return;
     }
 
@@ -148,7 +163,7 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
 
   private void callPlayAd(MethodCall call, Result result) {
     final String placementId = getAndValidatePlacementId(call, result);
-    if(placementId == null) {
+    if (placementId == null) {
       return;
     }
 
@@ -209,26 +224,49 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
     result.success(Boolean.TRUE);
   }
 
+  private void callLoadNativeAd(MethodCall call, Result result) {
+    final String placementId = getAndValidatePlacementId(call, result);
+    if (placementId == null) {
+      return;
+    }
+
+    Vungle.loadAd(placementId, new LoadAdCallback() {
+      @Override
+      public void onAdLoad(String s) {
+        Log.d(TAG, "Vungle native ad loaded, " + s);
+        channel.invokeMethod("onNativeAdLoaded", argumentsMap("placementId", s, "loaded", Boolean.TRUE));
+      }
+
+      @Override
+      public void onError(String s, VungleException exception) {
+        Log.e(TAG, "Vungle native ad load failed, " + s + ", ", exception);
+        channel.invokeMethod("onNativeAdLoadFailed", argumentsMap("placementId", s, "loaded", Boolean.FALSE));
+      }
+    });
+
+    result.success(Boolean.TRUE);
+  }
+
   private void callIsAdPlayable(MethodCall call, Result result) {
     String placementId = getAndValidatePlacementId(call, result);
-    if(placementId != null) {
+    if (placementId != null) {
       result.success(Vungle.canPlayAd(placementId));
     }
   }
 
   private void callGetConsentStatus(MethodCall call, Result result) {
-    
+    // Implementation for consent status
   }
 
   private void callUpdateConsentStatus(MethodCall call, Result result) {
     String consentStatus = call.argument("consentStatus");
     String consentMessageVersion = call.argument("consentMessageVersion");
-    if(TextUtils.isEmpty(consentStatus) || TextUtils.isEmpty(consentMessageVersion)) {
+    if (TextUtils.isEmpty(consentStatus) || TextUtils.isEmpty(consentMessageVersion)) {
       result.error("no_consent_status", "Null or empty consent status / message version was provided", null);
       return;
     }
     Vungle.Consent consent = strToConsentStatus.get(consentStatus);
-    if(consent == null) {
+    if (consent == null) {
       result.error("invalid_consent_status", "Invalid consent status was provided", null);
       return;
     }
@@ -248,5 +286,63 @@ public class VunglePlugin implements FlutterPlugin, MethodCallHandler {
       return null;
     }
     return placementId;
+  }
+
+  private static class NativeAdFactory extends PlatformViewFactory {
+    private final Context context;
+
+    NativeAdFactory(Context context) {
+      super(null);
+      this.context = context;
+    }
+
+    @Override
+    public PlatformView create(Context context, int id, Object args) {
+      final Map<String, Object> params = (Map<String, Object>) args;
+      String placementId = (String) params.get("placementId");
+
+      NativeAdConfig nativeAdConfig = new NativeAdConfig();
+      // Customize your NativeAdConfig here
+
+      NativeAd nativeAd = Vungle.getNativeAd(placementId, nativeAdConfig);
+      if (nativeAd == null) {
+        Log.e(TAG, "Failed to load native ad.");
+        return null;
+      }
+
+      View adView = LayoutInflater.from(context).inflate(R.layout.native_ad_layout, null);
+      ImageView iconView = adView.findViewById(R.id.native_ad_icon);
+      TextView titleView = adView.findViewById(R.id.native_ad_title);
+      TextView bodyView = adView.findViewById(R.id.native_ad_body);
+      Button ctaButton = adView.findViewById(R.id.native_ad_cta);
+
+      nativeAd.setAdIcon(iconView);
+      nativeAd.setAdTitle(titleView);
+      nativeAd.setAdBody(bodyView);
+      nativeAd.setCallToAction(ctaButton);
+
+      return new NativeAdView(context, adView, nativeAd);
+    }
+  }
+
+  private static class NativeAdView implements PlatformView {
+    private final View adView;
+    private final NativeAd nativeAd;
+
+    NativeAdView(Context context, View adView, NativeAd nativeAd) {
+      this.adView = adView;
+      this.nativeAd = nativeAd;
+      nativeAd.renderAdView(adView);
+    }
+
+    @Override
+    public View getView() {
+      return adView;
+    }
+
+    @Override
+    public void dispose() {
+      nativeAd.destroy();
+    }
   }
 }
