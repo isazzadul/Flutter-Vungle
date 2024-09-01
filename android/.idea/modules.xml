@@ -3,6 +3,9 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/vungle.iml" filepath="$PROJECT_DIR$/.idea/modules/vungle.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/vungle.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/vungle.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/vungle.main.iml" filepath="$PROJECT_DIR$/.idea/modules/vungle.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/vungle.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/vungle.unitTest.iml" />
     </modules>
   </component>
 </project>
